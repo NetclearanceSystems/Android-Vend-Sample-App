@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "896973486718",
+    "project_id": "ncvend-f47ac",
+    "storage_bucket": "ncvend-f47ac.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896973486718:android:6d5166a3f6a5b831ccb62f",
+        "android_client_info": {
+          "package_name": "com.netclearance.vendtest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "896973486718-i5bp21lh764vgkdrsnng1t48redj3g2i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-AHM9tHZWNzF664r0huM1joWZONLuOio"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "896973486718-i5bp21lh764vgkdrsnng1t48redj3g2i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
