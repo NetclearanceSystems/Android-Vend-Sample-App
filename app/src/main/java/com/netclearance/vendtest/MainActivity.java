@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private byte[] DEXCOMMAND = hexStringToByteArray("DD12121212121212121212121212121212121212");
     private byte[] ACKCOMMAND = hexStringToByteArray("AA12121212121212121212121212121212121212");
 
-    private int dexDataCount = 0;
+    private int dexTotalDataCount = 0;
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
@@ -178,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
             super.OnDeviceConnected(device);
 
             _deviceConnected = true;
-
+            dexTotalDataCount = 0;
 
             runOnUiThread(new Runnable() {
                 @Override
@@ -247,18 +247,22 @@ public class MainActivity extends AppCompatActivity {
         public void OnDeviceDataAvailable(byte[] buffer)
         {
             Logger.d("Got new data buffer with size:"  + buffer.length + " bytes");
-
             Logger.d("Received msg: " + StringUtils.byteArrayToHexString(buffer));
 
             final int len = buffer.length;
+            dexTotalDataCount = dexTotalDataCount + len;
 
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     TextView tv = findViewById(R.id.message);
-                    tv.setText("Got Data:"+ len + " bytes");
+                    tv.setText("Got Data:"+ dexTotalDataCount + " bytes");
                 }
             });
+
+
+            if (len == 240)
+                sendACK();
 
             sendFirebaseEvent(_mDevice, "DATA_RECEIVED_SUCCESS");
 
@@ -269,9 +273,7 @@ public class MainActivity extends AppCompatActivity {
         {
             Logger.d("Received # of bytes:" + index);
 
-           dexDataCount = index;
-           if (dexDataCount == 240)
-               sendACK();
+
         }
 
 
