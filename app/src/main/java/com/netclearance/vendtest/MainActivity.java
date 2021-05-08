@@ -1,5 +1,6 @@
 package com.netclearance.vendtest;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -12,9 +13,16 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.util.UUID;
+
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import com.netclearance.ncvendsdk.*;
 import android.provider.Settings.Secure;
 import android.view.View;
@@ -36,13 +44,20 @@ public class MainActivity extends AppCompatActivity {
     private int connectionThreshold = -80; // Set RSSI value to connect at close or wide range from the terminal
     private boolean _deviceConnected = false;
     private FirebaseAnalytics mFirebaseAnalytics;
+    private FirebaseStorage mFirebaseStorage;
+    private StorageReference mStorageReference;
+    private StorageReference mDexStorageReference;
     private Bundle bundle = new Bundle();
     private String android_id;
+
+    private int DEX_SIZE = 10240 ; //10 KB DEX file storage buffer
+    private byte[] _mDexFile = new byte[DEX_SIZE]; //10 KB for receiving dex data
 
     private byte[] DEXCOMMAND = hexStringToByteArray("DD12121212121212121212121212121212121212");
     private byte[] ACKCOMMAND = hexStringToByteArray("AA12121212121212121212121212121212121212");
 
     private int dexTotalDataCount = 0;
+    private int _mDataIndex = 0;
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
@@ -62,11 +77,17 @@ public class MainActivity extends AppCompatActivity {
         // Obtain the FirebaseAnalytics instance.
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
+        //Obtain the FirebaseStorage instance.
+        mFirebaseStorage = FirebaseStorage.getInstance();
+
         if (_mDevice != null)
         {
             _mDevice.NCDeviceConfig(null, null, null,BLE_SERVICE_UUID, this,_mCallBack);
 
         }
+
+        mStorageReference = mFirebaseStorage.getReference();
+        mDexStorageReference = mStorageReference.child("dexfiles");
 
         checkForBLELocationPermissions(this);
 
@@ -260,11 +281,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+            System.arraycopy(buffer, 0, _mDexFile, _mDataIndex, len);
+            _mDataIndex = _mDataIndex + len;
 
             if (len == 240)
                 sendACK();
 
             sendFirebaseEvent(_mDevice, "DATA_RECEIVED_SUCCESS");
+
+            if((buffer[239] == 0x00)&&(buffer[238] == 0x00))
+                uploadFile_toFireStorage(_mDexFile);
 
         }
 
@@ -355,6 +381,54 @@ public class MainActivity extends AppCompatActivity {
         bundle.putString("DEVICE_ADDRESS", device_address);
         bundle.putString("USER_DEVICE_ID", android_id);
         mFirebaseAnalytics.logEvent(_eventName, bundle);
+    }
+
+
+    private void uploadFile_toFireStorage(byte[] file){
+
+        StorageReference dexFileRef = mDexStorageReference.child("dex_file_"+ System.currentTimeMillis());
+        UploadTask uploadTask = dexFileRef.putBytes(file);
+        uploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                // Handle unsuccessful uploads
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv = findViewById(R.id.message);
+                        tv.setText("Upload Failed");
+                    }
+                });
+            }
+        }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                // taskSnapshot.getMetadata() contains file metadata such as size, content-type, etc.
+                // ...
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv = findViewById(R.id.message);
+                        tv.setText("Upload Successful");
+                    }
+                });
+            }
+        });
+
+        uploadTask.addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
+                final double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
+                Logger.d("Upload is " + progress + "% done");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv = findViewById(R.id.message);
+                        tv.setText("Upload is " + progress + "% done");
+                    }
+                });
+            }
+        });
     }
 
     public boolean checkForVicinity(int signalRSSI)
